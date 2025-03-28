@@ -10,18 +10,8 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// CORS Configuration - make it as permissive as possible for debugging
-app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-  next();
-});
+// Enable CORS for all routes
+app.use(cors());
 
 // Basic middleware
 app.use(express.json());
