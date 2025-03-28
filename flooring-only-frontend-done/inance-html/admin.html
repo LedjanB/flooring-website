@@ -244,21 +244,29 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'Accept': 'application/json'
                     },
                     body: JSON.stringify({ username, password }),
+                    mode: 'cors',
+                    credentials: 'omit'
                 });
 
-                if (response.ok) {
-                    const data = await response.json();
-                    token = data.token;
-                    localStorage.setItem('adminToken', token);
-                    showDashboard();
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                if (data.success && data.token) {
+                    localStorage.setItem('adminToken', data.token);
+                    document.getElementById('loginForm').classList.add('hidden');
+                    document.getElementById('adminDashboard').classList.remove('hidden');
+                    loadProducts();
                 } else {
-                    alert('Invalid credentials');
+                    alert('Login failed: ' + (data.message || 'Unknown error'));
                 }
             } catch (error) {
                 console.error('Login error:', error);
-                alert('Login failed');
+                alert('Login failed. Please try again.');
             }
         });
 

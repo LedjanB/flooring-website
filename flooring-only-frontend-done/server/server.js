@@ -10,19 +10,22 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// CORS configuration
-const corsOptions = {
-  origin: 'https://flooring-website-eight.vercel.app',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true,
-  optionsSuccessStatus: 200
-};
+// CORS configuration - make it as permissive as possible for debugging
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  next();
+});
 
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); // Enable pre-flight for all routes
-
+// Basic middleware
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -140,33 +143,78 @@ app.get('/api/products/:id', async (req, res) => {
 });
 
 // Login
-app.post('/api/login', cors(corsOptions), async (req, res) => {
+app.post('/api/login', async (req, res) => {
   try {
-    console.log('Login attempt received');
-    console.log('Headers:', req.headers);
-    console.log('Body:', req.body);
+    // Log the entire request for debugging
+    console.log('=== Login Request ===');
+    console.log('Headers:', JSON.stringify(req.headers, null, 2));
+    console.log('Body:', JSON.stringify(req.body, null, 2));
 
-    if (!req.body || !req.body.username || !req.body.password) {
-      console.log('Missing credentials in request');
-      return res.status(400).json({ message: 'Username and password are required' });
+    // Ensure we have a body
+    if (!req.body) {
+      return res.status(400).json({ success: false, message: 'No request body provided' });
     }
 
     const { username, password } = req.body;
-    const users = JSON.parse(await fs.readFile(USERS_FILE));
-    console.log('Found users:', users);
-    const user = users.find(u => u.username === username);
 
-    if (!user || !(await bcrypt.compare(password, user.password))) {
-      console.log('Login failed for username:', username);
-      return res.status(401).json({ message: 'Invalid credentials' });
+    // Validate inputs
+    if (!username || !password) {
+      return res.status(400).json({ success: false, message: 'Username and password are required' });
     }
 
-    const token = jwt.sign({ username: user.username }, process.env.JWT_SECRET || 'your-secret-key');
+    // Read users file
+    let users;
+    try {
+      const usersData = await fs.readFile(USERS_FILE, 'utf8');
+      users = JSON.parse(usersData);
+      console.log('Users found:', users.length);
+    } catch (error) {
+      console.error('Error reading users file:', error);
+      // If file doesn't exist, create default admin
+      users = [{
+        username: 'admin',
+        password: await bcrypt.hash('admin123', 10)
+      }];
+      await fs.writeFile(USERS_FILE, JSON.stringify(users));
+    }
+
+    // Find user
+    const user = users.find(u => u.username === username);
+    if (!user) {
+      console.log('User not found:', username);
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+
+    // Verify password
+    const validPassword = await bcrypt.compare(password, user.password);
+    if (!validPassword) {
+      console.log('Invalid password for user:', username);
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+
+    // Generate token
+    const token = jwt.sign(
+      { username: user.username },
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: '24h' }
+    );
+
     console.log('Login successful for:', username);
-    res.json({ token });
+    
+    // Send success response
+    return res.status(200).json({
+      success: true,
+      message: 'Login successful',
+      token
+    });
+
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ message: 'Error during login', error: error.message });
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
   }
 });
 
