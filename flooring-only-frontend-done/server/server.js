@@ -11,18 +11,16 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // CORS configuration
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', 'https://flooring-website-eight.vercel.app');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  
-  // Handle preflight
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-  next();
-});
+const corsOptions = {
+  origin: 'https://flooring-website-eight.vercel.app',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // Enable pre-flight for all routes
 
 app.use(express.json());
 
@@ -142,9 +140,17 @@ app.get('/api/products/:id', async (req, res) => {
 });
 
 // Login
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', cors(corsOptions), async (req, res) => {
   try {
-    console.log('Login attempt:', req.body);
+    console.log('Login attempt received');
+    console.log('Headers:', req.headers);
+    console.log('Body:', req.body);
+
+    if (!req.body || !req.body.username || !req.body.password) {
+      console.log('Missing credentials in request');
+      return res.status(400).json({ message: 'Username and password are required' });
+    }
+
     const { username, password } = req.body;
     const users = JSON.parse(await fs.readFile(USERS_FILE));
     console.log('Found users:', users);
@@ -160,7 +166,7 @@ app.post('/api/login', async (req, res) => {
     res.json({ token });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ message: 'Error during login' });
+    res.status(500).json({ message: 'Error during login', error: error.message });
   }
 });
 
