@@ -12,11 +12,16 @@ const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors({
-  origin: ['https://flooring-website-eight.vercel.app', 'http://localhost:3000', 'http://localhost:5000'],
+  origin: true, // Allow all origins
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  credentials: true,
+  preflightContinue: true
 }));
+
+// Handle OPTIONS preflight requests
+app.options('*', cors());
+
 app.use(express.json());
 
 // Configure multer for file uploads
@@ -136,16 +141,25 @@ app.get('/api/products/:id', async (req, res) => {
 
 // Login
 app.post('/api/login', async (req, res) => {
-  const { username, password } = req.body;
-  const users = JSON.parse(await fs.readFile(USERS_FILE));
-  const user = users.find(u => u.username === username);
+  try {
+    console.log('Login attempt:', req.body);
+    const { username, password } = req.body;
+    const users = JSON.parse(await fs.readFile(USERS_FILE));
+    console.log('Found users:', users);
+    const user = users.find(u => u.username === username);
 
-  if (!user || !(await bcrypt.compare(password, user.password))) {
-    return res.status(401).json({ message: 'Invalid credentials' });
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      console.log('Login failed for username:', username);
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    const token = jwt.sign({ username: user.username }, process.env.JWT_SECRET || 'your-secret-key');
+    console.log('Login successful for:', username);
+    res.json({ token });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ message: 'Error during login' });
   }
-
-  const token = jwt.sign({ username: user.username }, process.env.JWT_SECRET || 'your-secret-key');
-  res.json({ token });
 });
 
 // Get all products
