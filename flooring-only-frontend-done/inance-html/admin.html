@@ -248,7 +248,7 @@
                     },
                     body: JSON.stringify({ username, password }),
                     mode: 'cors',
-                    credentials: 'omit'
+                    credentials: 'include'
                 });
 
                 if (!response.ok) {
