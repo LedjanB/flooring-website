@@ -75,15 +75,12 @@ const initializeDataFiles = async () => {
     await fs.writeFile(PRODUCTS_FILE, JSON.stringify([]));
   }
   
-  try {
-    await fs.access(USERS_FILE);
-  } catch {
-    const defaultUser = {
-      username: 'admin',
-      password: await bcrypt.hash('admin123', 10)
-    };
-    await fs.writeFile(USERS_FILE, JSON.stringify([defaultUser]));
-  }
+  // Always create/update the admin user
+  const defaultUser = {
+    username: 'admin',
+    password: await bcrypt.hash('admin123', 10)
+  };
+  await fs.writeFile(USERS_FILE, JSON.stringify([defaultUser]));
 };
 
 // Authentication middleware
